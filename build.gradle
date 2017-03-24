@@ -1,0 +1,29 @@
+apply plugin: "java"
+sourceSets { //java plugin有两个重点，一个是main，一个是test，可以在sourceSets里面
+    //设定资源文件在哪里
+    main {
+        java {
+            srcDir "src/main/java"
+        }
+        resources {
+            srcDir "src/main/resources"
+        }
+    }
+    test {
+        java {
+            srcDir "src/test/java"
+        }
+        resources {
+            srcDir "src/test/resources"
+        }
+    }
+}
+jar {
+    manifest {
+        attributes ("Version": "1.0" ,
+                "Main-Class": "com.javatocpp.main.Main",
+                "Bundle-Version": "0.0.1",
+                "Implementation-Title": "com.zhuchao",
+                "Implementation-Version": "0.0.1")
+    }
+}
