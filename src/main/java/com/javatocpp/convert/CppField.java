@@ -54,6 +54,6 @@ public class CppField implements Token{
 
     @Override
     public String getToken() {
-        return "field_" + fieldName;
+        return "_field_" + fieldName;
     }
 }

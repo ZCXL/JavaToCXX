@@ -86,7 +86,7 @@ public class CppMethod implements Token{
             CppParameter parameter = params.get(i);
             builder.append(parameter.getParamType() + parameter.getParamName());
         }
-        token = methodName + Util.getToken(builder.toString());
+        token = "_method_" + methodName + "_" + Util.getToken(builder.toString());
         return token;
     }
 }

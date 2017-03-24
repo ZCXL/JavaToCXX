@@ -22,6 +22,9 @@ public class CppClass {
     public CppClass(String fileName, int line, String className) {
         this.fileName = fileName;
         this.line = line;
+        if(className.contains(".h")) {
+            className = className.substring(0, className.lastIndexOf("."));
+        }
         this.className = className;
         init();
     }
@@ -163,5 +166,29 @@ public class CppClass {
 
     public ArrayList<CppMethod> getMethodList() {
         return methodList;
+    }
+
+    public ArrayList<String> getFieldIDList() {
+        return fieldIDList;
+    }
+
+    public void setFieldIDList(ArrayList<String> fieldIDList) {
+        this.fieldIDList = fieldIDList;
+    }
+
+    public ArrayList<String> getMethodIDList() {
+        return methodIDList;
+    }
+
+    public void setMethodIDList(ArrayList<String> methodIDList) {
+        this.methodIDList = methodIDList;
+    }
+
+    public ArrayList<String> getInitMethodIDList() {
+        return initMethodIDList;
+    }
+
+    public void setInitMethodIDList(ArrayList<String> initMethodIDList) {
+        this.initMethodIDList = initMethodIDList;
     }
 }

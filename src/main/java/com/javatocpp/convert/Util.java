@@ -80,7 +80,9 @@ public class Util {
      * @return
      */
     public static String getType(String type) {
-        if (type.equals("void") || type.equals("int")
+        if (type.equals("void")){
+            return "void";
+        } else if (type.equals("int") || type.equals("boolean")
                 || type.equals("long") || type.equals("float")
                 || type.equals("double") || type.equals("short")
                 || type.equals("byte") || type.equals("char")) {
@@ -98,38 +100,38 @@ public class Util {
      */
     public static String getFieldType(String type) {
         if (type.equals("boolean")) {
-            return "BooleanField";
+            return "Boolean";
         } else if (type.equals("void")) {
-            return "VoidField";
+            return "Void";
         } else if (type.equals("int")) {
-            return "IntField";
+            return "Int";
         } else if (type.equals("long")) {
-            return "LongField";
+            return "Long";
         } else if (type.equals("float")) {
-            return "FloatField";
+            return "Float";
         } else if (type.equals("double")) {
-            return "DoubleField";
+            return "Double";
         } else if (type.equals("short")) {
-            return "ShortField";
+            return "Short";
         } else if (type.equals("byte")) {
-            return "ByteField";
+            return "Byte";
         } else if (type.equals("char")) {
-            return "CharField";
+            return "Char";
         } else {
-            if (type.startsWith("[")) {
-                return getUnsign(type.substring(1)) + "ArrayRegion";
-            } else {
-                return "ObjectField";
-            }
+            return "Object";
         }
     }
 
     public static String getFieldID(String type) {
-        return "Get" + getFieldType(type);
+        return "Get" + getFieldType(type) + "Field";
+    }
+
+    public static String getMethodID(String type) {
+        return "Call" + getFieldType(type) + "Method";
     }
 
     public static String setFieldID(String type) {
-        return "Set" + getFieldType(type);
+        return "Set" + getFieldType(type) + "Field";
     }
 
     public static String build(String origin ,String charsetName){

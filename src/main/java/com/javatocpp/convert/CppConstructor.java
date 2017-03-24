@@ -18,6 +18,10 @@ public class CppConstructor implements Token{
     }
     public CppConstructor(String privilege, String constructorName) {
         this.privilege = privilege;
+        if (constructorName.contains(".")) {
+            constructorName = constructorName.substring(constructorName.lastIndexOf(".") + 1,
+                    constructorName.length());
+        }
         this.constructorName = constructorName;
         token = "";
     }
@@ -80,7 +84,7 @@ public class CppConstructor implements Token{
             CppParameter parameter = params.get(i);
             builder.append(parameter.getParamType() + parameter.getParamName());
         }
-        token = constructorName + Util.getToken(builder.toString());
+        token = "_method_init_" + Util.getToken(builder.toString());
         return token;
     }
 }

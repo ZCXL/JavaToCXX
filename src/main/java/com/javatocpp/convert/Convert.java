@@ -49,7 +49,6 @@ public class Convert {
                 line++;
             }
             for (int i = 0; i < classList.size(); i++) {
-                System.out.print(classList.get(i).toString());
                 DefineNewClass(classList.get(i));
             }
         } catch (IOException e) {
