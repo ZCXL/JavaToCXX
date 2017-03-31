@@ -11,6 +11,7 @@ import java.util.ArrayList;
 public class CppClass {
     private Class cls;
     private int line;
+    private boolean hasDefaultConstructor = true;
     private String className;
     private String fileName;
     private ArrayList<CppField> fieldList = new ArrayList<>();
@@ -19,6 +20,16 @@ public class CppClass {
     private ArrayList<String> fieldIDList = new ArrayList<>();
     private ArrayList<String> methodIDList = new ArrayList<>();
     private ArrayList<String> initMethodIDList = new ArrayList<>();
+    private ArrayList<String> predeclareClass = new ArrayList<>();
+
+    public CppClass(String className) {
+        this.fileName = fileName;
+        if(className.contains(".h")) {
+            className = className.substring(0, className.lastIndexOf("."));
+        }
+        this.className = className;
+        hasDefaultConstructor = false;
+    }
     public CppClass(String fileName, int line, String className) {
         this.fileName = fileName;
         this.line = line;
@@ -49,6 +60,10 @@ public class CppClass {
             CppConstructor constructor = new CppConstructor(sModifier, cons[i].getName());
             for (int j = 0; j < parameters.length; j++) {
                 CppParameter param = new CppParameter(parameters[j].getType().getName(), parameters[j].getName());
+                String innerType = Util.getNotInnerType(param.getParamType());
+                if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
+                    predeclareClass.add(innerType);
+                }
                 constructor.addParam(param);
             }
             constructor.constructSignature();
@@ -64,8 +79,16 @@ public class CppClass {
             int modifier = methods[i].getModifiers();
             String sModifier = Modifier.toString(modifier);
             CppMethod method = new CppMethod(sModifier, returnType.getName(), methods[i].getName());
+            String innerType = Util.getNotInnerType(method.getMethodType());
+            if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
+                predeclareClass.add(innerType);
+            }
             for(int j = 0; j< parameters.length; j++) {
                 CppParameter param = new CppParameter(parameters[j].getType().getName(), parameters[j].getName());
+                innerType = Util.getNotInnerType(param.getParamType());
+                if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
+                    predeclareClass.add(innerType);
+                }
                 method.addParam(param);
             }
             method.constructSignature();
@@ -81,6 +104,10 @@ public class CppClass {
             String sModifier = Modifier.toString(modifier);
             Class<?>type = fields[i].getType();
             CppField field = new CppField(sModifier, type.getName(), fields[i].getName());
+            String innerType = Util.getNotInnerType(type.getName());
+            if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
+                predeclareClass.add(innerType);
+            }
             field.constructSignature();
             fieldList.add(field);
             fieldIDList.add(field.getToken());
@@ -190,5 +217,21 @@ public class CppClass {
 
     public void setInitMethodIDList(ArrayList<String> initMethodIDList) {
         this.initMethodIDList = initMethodIDList;
+    }
+
+    public boolean isHasDefaultConstructor() {
+        return hasDefaultConstructor;
+    }
+
+    public void setHasDefaultConstructor(boolean hasDefaultConstructor) {
+        this.hasDefaultConstructor = hasDefaultConstructor;
+    }
+
+    public ArrayList<String> getPredeclareClass() {
+        return predeclareClass;
+    }
+
+    public void setPredeclareClass(ArrayList<String> predeclareClass) {
+        this.predeclareClass = predeclareClass;
     }
 }

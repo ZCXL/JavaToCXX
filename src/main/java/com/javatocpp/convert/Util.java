@@ -12,6 +12,7 @@ public class Util {
      * Fetch the type signature for java object,
      * according the type string.
      * 根据类型字段推算出Java的类型签名
+     *
      * @param type
      * @return
      */
@@ -36,9 +37,9 @@ public class Util {
             return "C";
         } else {
             if (type.startsWith("[")) {
-                return type;
+                return type.replaceAll("\\.", "/");
             } else {
-                return "L" + type + ";";
+                return "L" + type.replaceAll("\\.", "/") + ";";
             }
         }
     }
@@ -46,10 +47,11 @@ public class Util {
     /**
      * Fetch type string for function or field,
      * according the java type signature.
+     *
      * @param type
      * @return
      */
-    public static String getUnsign(String type) {
+    public static String getUnsign(String type, boolean isImport) {
         if (type.equals("Z")) {
             return "boolean";
         } else if (type.equals("V")) {
@@ -69,32 +71,114 @@ public class Util {
         } else if (type.equals("C")) {
             return "char";
         } else {
-            return "object";
+            if (type.startsWith("L")) {
+                type = type.substring(1);
+            }
+            String className = type.replaceAll(";", "");
+            String[] dirs = className.split("\\.");
+
+            /**
+             * Process some classes that is not imported,
+             * but used.
+             */
+            if (!Convert.findClass(className) && isImport) {
+                Convert.addPredeclareClass(className);
+            }
+            return dirs[dirs.length - 1];
         }
     }
 
 
     /**
      * Transfer java type to C++ type.
+     *
      * @param type
      * @return
      */
     public static String getType(String type) {
-        if (type.equals("void")){
+        if (type.equals("void")) {
             return "void";
         } else if (type.equals("int") || type.equals("boolean")
                 || type.equals("long") || type.equals("float")
                 || type.equals("double") || type.equals("short")
                 || type.equals("byte") || type.equals("char")) {
-            return "j" + type;
+            return "bridge_" + type;
         } else if (type.startsWith("[")) {
-            return "j" + getUnsign(type.substring(1)) + "Array";
+            String subType = type.substring(1);
+            String unsign = getUnsign(subType, true);
+            if (unsign.equals("int") || unsign.equals("boolean")
+                    || unsign.equals("long") || unsign.equals("float")
+                    || unsign.equals("double") || unsign.equals("short")
+                    || unsign.equals("byte") || unsign.equals("char")) {
+                return "bridge_" + unsign + "_array";
+            } else {
+                return "JavaObjectArray<J" + unsign + ">";
+            }
+        } else {
+            if (type.equals("java.lang.String")) {
+                return "bridge_string";
+            }
+            String[] dirs = type.split("\\.");
+
+            /**
+             * Process some classes that is not imported,
+             * but used.
+             */
+            if (!Convert.findClass(type)) {
+                Convert.addPredeclareClass(type);
+            }
+            return "J" + dirs[dirs.length - 1];
         }
-        return "jobject";
     }
 
+    public static boolean isObjectOrNot(String type) {
+        if (type.equals("int") || type.equals("boolean")
+                || type.equals("long") || type.equals("float")
+                || type.equals("double") || type.equals("short")
+                || type.equals("byte") || type.equals("char")) {
+            return false;
+        }
+        return true;
+    }
+
+    public static String getNotInnerType(String type) {
+        if (type.equals("void")) {
+            return "";
+        } else if (type.equals("int") || type.equals("boolean")
+                || type.equals("long") || type.equals("float")
+                || type.equals("double") || type.equals("short")
+                || type.equals("byte") || type.equals("char")) {
+            return "";
+        } else if (type.startsWith("[")) {
+            String subType = type.substring(1);
+            String unsign = getUnsign(subType, false);
+            if (unsign.equals("int") || unsign.equals("boolean")
+                    || unsign.equals("long") || unsign.equals("float")
+                    || unsign.equals("double") || unsign.equals("short")
+                    || unsign.equals("byte") || unsign.equals("char")) {
+                return "";
+            } else {
+                if (subType.startsWith("L")) {
+                    subType = subType.substring(1);
+                    subType = subType.replaceAll(";", "");
+                }
+
+                return subType;
+            }
+        } else {
+            if (type.equals("java.lang.String")) {
+                return "";
+            }
+
+            if (type.startsWith("L")) {
+                type = type.substring(1);
+                type = type.replaceAll(";", "");
+            }
+
+            return type;
+        }
+    }
     /**
-     * 
      * @param type
      * @return
      */
@@ -134,33 +218,60 @@ public class Util {
         return "Set" + getFieldType(type) + "Field";
     }
 
-    public static String build(String origin ,String charsetName){
-        if(origin == null )
-            return null ;
 
-        StringBuilder sb = new StringBuilder() ;
-        MessageDigest digest = null ;
+    /**
+     * Get a md5 value of a string.
+     *
+     * @param origin
+     * @param charsetName
+     * @return
+     */
+    public static String build(String origin, String charsetName) {
+        if (origin == null)
+            return null;
+
+        StringBuilder sb = new StringBuilder();
+        MessageDigest digest = null;
         try {
             digest = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
-            return null ;
+            return null;
         }
 
         //生成一组length=16的byte数组
-        byte[] bs = digest.digest(origin.getBytes(Charset.forName(charsetName))) ;
+        byte[] bs = digest.digest(origin.getBytes(Charset.forName(charsetName)));
 
         for (int i = 0; i < bs.length; i++) {
-            int c = bs[i] & 0xFF ; //byte转int为了不丢失符号位， 所以&0xFF
-            if(c < 16){ //如果c小于16，就说明，可以只用1位16进制来表示， 那么在前面补一个0
+            int c = bs[i] & 0xFF; //byte转int为了不丢失符号位， 所以&0xFF
+            if (c < 16) { //如果c小于16，就说明，可以只用1位16进制来表示， 那么在前面补一个0
                 sb.append("0");
             }
-            sb.append(Integer.toHexString(c)) ;
+            sb.append(Integer.toHexString(c));
         }
-        return sb.toString() ;
+        return sb.toString();
     }
 
+    /**
+     * Produce a token for field, method, or constructor.
+     *
+     * @param str
+     * @return
+     */
     public static String getToken(String str) {
         return build(str, "UTF-8");
+    }
+
+    public static String getLisence() {
+        StringBuilder builder = new StringBuilder();
+        builder.append(" * \tThis file generated by Java-to-C++ mixed programming framework, \n");
+        builder.append(" * \twhich is developed by author Brother-Chao, is used to create a \n");
+        builder.append(" * \tbridge linking java virtual machine with c++ runtime. It help \n");
+        builder.append(" * \tprogrammer invoking java class in C++ extra-easily, just inclu- \n");
+        builder.append(" * \tdeing this header file in their C++ code file. You can not only \n");
+        builder.append(" * \tuse all variables or invoke all function whose privilege is pu-\n");
+        builder.append(" * \tblic declared in java class file, but also inherit java class s-\n");
+        builder.append(" * \ttarting with \"J\". Generally speaking, it's very useful.\n");
+        return builder.toString();
     }
 }
