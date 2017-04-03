@@ -8,6 +8,8 @@ import java.security.NoSuchAlgorithmException;
  * Created by ZhuChao on 2017/3/16.
  */
 public class Util {
+    public final static int RETURN = 1;
+    public final static int PARAM  = 2;
     /**
      * Fetch the type signature for java object,
      * according the type string.
@@ -95,7 +97,7 @@ public class Util {
      * @param type
      * @return
      */
-    public static String getType(String type) {
+    public static String getType(String type, int result) {
         if (type.equals("void")) {
             return "void";
         } else if (type.equals("int") || type.equals("boolean")
@@ -112,7 +114,11 @@ public class Util {
                     || unsign.equals("byte") || unsign.equals("char")) {
                 return "bridge_" + unsign + "_array";
             } else {
-                return "JavaObjectArray<J" + unsign + ">";
+                if (result == RETURN) {
+                    return "jobject";
+                } else {
+                    return "JavaObjectArray<" + unsign + ">";
+                }
             }
         } else {
             if (type.equals("java.lang.String")) {
@@ -127,7 +133,11 @@ public class Util {
             if (!Convert.findClass(type)) {
                 Convert.addPredeclareClass(type);
             }
-            return "J" + dirs[dirs.length - 1];
+            if (result == RETURN) {
+                return "jobject";
+            } else {
+                return dirs[dirs.length - 1];
+            }
         }
     }
 

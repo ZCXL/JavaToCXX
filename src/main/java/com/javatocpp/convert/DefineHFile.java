@@ -154,18 +154,18 @@ public class DefineHFile {
     public static String getField(CppField cppFiled) {
         StringBuilder builder = new StringBuilder();
         builder.append(getPrivilege(cppFiled.getPrivilege()) + ":\n");
-        builder.append("\t" + Util.getType(cppFiled.getFieldType()) + " get_" + cppFiled.getFieldName() + "() {\n");
+        builder.append("\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " get_" + cppFiled.getFieldName() + "() {\n");
         builder.append("\t\tif (" + cppFiled.getToken() + " == NULL) {\n");
         builder.append("\t\t\t" + cppFiled.getToken() + " = " + "_env->GetFieldID(_clazz, \"" +
                         cppFiled.getFieldName() + "\", \"" + cppFiled.getSignature() + "\");\n");
         builder.append("\t\t}\n");
-        builder.append("\t\t" + Util.getType(cppFiled.getFieldType()) + " ret = "+
-                        Util.getType(cppFiled.getFieldType()) + "(" +
+        builder.append("\t\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " ret = "+
+                        Util.getType(cppFiled.getFieldType(), Util.RETURN) + "(" +
                         "_env->" + Util.getFieldID(cppFiled.getFieldType()) +
                         "(_object, " + cppFiled.getToken() + "));\n");
         builder.append("\t\treturn ret;\n");
         builder.append("\t}\n");
-        builder.append("\tvoid " + "set_" + cppFiled.getFieldName() + "(" + Util.getType(cppFiled.getFieldType()) +
+        builder.append("\tvoid " + "set_" + cppFiled.getFieldName() + "(" + Util.getType(cppFiled.getFieldType(), Util.PARAM) +
                         " object) {\n");
         builder.append("\t\tif (" + cppFiled.getToken() + " == NULL) {\n");
         builder.append("\t\t\t" + cppFiled.getToken() + " = " + "_env->GetFieldID(_clazz, \"" +
@@ -207,17 +207,17 @@ public class DefineHFile {
         builder.append("public:\n");
         fileName = fileName.replace(".h", "");
         if (!hasDefault) {
-            builder.append("\tJ" + fileName + "(): J" + fileName
+            builder.append("\t" + fileName + "(): " + fileName
                     + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
             builder.append("\t}\n");
         }
-        builder.append("\tJ" + fileName + "(jobject object): J" + fileName
+        builder.append("\t" + fileName + "(jobject object): " + fileName
                 + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
         builder.append("\t\tif (object != NULL) {\n");
         builder.append("\t\t\t_object = object;\n");
         builder.append("\t\t}\n");
         builder.append("\t}\n");
-        builder.append("\tJ" + fileName + "(J" + fileName + "& obj): J" + fileName
+        builder.append("\t" + fileName + "(" + fileName + "& obj): " + fileName
                 + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
         builder.append("\t\t_object = obj._object;\n");
         builder.append("\t}\n");
@@ -232,7 +232,7 @@ public class DefineHFile {
         StringBuilder builder = new StringBuilder();
         builder.append("public:\n");
         fileName = fileName.replace(".h", "");
-        builder.append("\t~J" + fileName + "() {\n");
+        builder.append("\t~" + fileName + "() {\n");
         builder.append("\t}\n");
 
         return builder.toString();
@@ -243,7 +243,7 @@ public class DefineHFile {
         String className = cppClass.getClassName();
         String name = className.substring(className.lastIndexOf(".") + 1, className.length());
         builder.append("protected:\n");
-        builder.append("\tJ" + name + "(std::string className): JavaObject(className) {\n");
+        builder.append("\t" + name + "(std::string className): JavaObject(className) {\n");
         ArrayList<String> fieldIDList = cppClass.getFieldIDList();
         for (int i = 0; i < fieldIDList.size(); i++) {
             builder.append("\t\t" + fieldIDList.get(i) + " = NULL;\n");
@@ -262,16 +262,16 @@ public class DefineHFile {
     public static String getConstructor(CppConstructor cppConstructor, String className) {
         StringBuilder builder = new StringBuilder();
         builder.append(getPrivilege(cppConstructor.getPrivilege()) + ":\n");
-        builder.append("\tJ" + cppConstructor.getConstructorName() + "(");
+        builder.append("\t" + cppConstructor.getConstructorName() + "(");
         ArrayList<CppParameter> params = cppConstructor.getParams();
         for (int i = 0; i < params.size(); i++) {
             CppParameter param = params.get(i);
-            builder.append(Util.getType(param.getParamType()) + " " + param.getParamName());
+            builder.append(Util.getType(param.getParamType(), Util.PARAM) + " " + param.getParamName());
             if (i != params.size() - 1) {
                 builder.append(", ");
             }
         }
-        builder.append("): J" + cppConstructor.getConstructorName() + "(std::string(\"" +
+        builder.append("): " + cppConstructor.getConstructorName() + "(std::string(\"" +
                         Util.getSign(className).replace(".", "/") + "\")) {\n");
         builder.append("\t\tif (" + cppConstructor.getToken() + " == NULL) {\n");
         builder.append("\t\t\t" + cppConstructor.getToken() + " = _env->GetMethodID(_clazz, \"<init>\", \"" +
@@ -297,11 +297,11 @@ public class DefineHFile {
     public static String getMethod(CppMethod cppMethod) {
         StringBuilder builder = new StringBuilder();
         builder.append(getPrivilege(cppMethod.getPrivilege()) + ":\n");
-        builder.append("\t" + Util.getType(cppMethod.getMethodType()) + " " + cppMethod.getMethodName() + "(");
+        builder.append("\t" + Util.getType(cppMethod.getMethodType(), Util.RETURN) + " " + cppMethod.getMethodName() + "(");
         ArrayList<CppParameter> params = cppMethod.getParams();
         for (int i = 0; i < params.size(); i++) {
             CppParameter param = params.get(i);
-            builder.append(Util.getType(param.getParamType()) + " " + param.getParamName());
+            builder.append(Util.getType(param.getParamType(), Util.PARAM) + " " + param.getParamName());
             if (i != params.size() - 1) {
                 builder.append(", ");
             }
@@ -314,10 +314,10 @@ public class DefineHFile {
         builder.append("\t\t}\n");
         builder.append("\t\t");
         boolean isReturn =false;
-        if (!Util.getType(cppMethod.getMethodType()).equals("void")) {
+        if (!Util.getType(cppMethod.getMethodType(), Util.RETURN).equals("void")) {
             isReturn = true;
-            builder.append(Util.getType(cppMethod.getMethodType()) + " ret = " +
-                    Util.getType(cppMethod.getMethodType()) + "(");
+            builder.append(Util.getType(cppMethod.getMethodType(), Util.RETURN) + " ret = " +
+                    Util.getType(cppMethod.getMethodType(), Util.RETURN) + "(");
         }
         builder.append("_env->" + Util.getMethodID(cppMethod.getMethodType()) + "(_object, " +
                         cppMethod.getToken());
@@ -357,6 +357,6 @@ public class DefineHFile {
         } else if (privilege.contains("protected")) {
             return "protected";
         }
-        return "";
+        return "protected";
     }
 }
