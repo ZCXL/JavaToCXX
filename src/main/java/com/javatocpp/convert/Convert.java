@@ -131,7 +131,8 @@ public class Convert {
                              */
                             Log.notice("Include class[%s]\n", headerName.replace(".h", ""));
                             importConstruction.put(line, headerName);
-                            CppClass cppClass = new CppClass(file.getName(), line, headerName);
+                            String fileNames[] = headerName.split("\\.");
+                            CppClass cppClass = new CppClass(fileNames[fileNames.length - 2], line, headerName);
                             classList.add(cppClass);
                         }
                     }
@@ -144,7 +145,9 @@ public class Convert {
 
             for (int i = 0; i < predeclareList.size(); i++) {
                 Log.notice("Predeclare class[%s]\n", predeclareList.get(i));
-                CppClass cppClass = new CppClass(predeclareList.get(i));
+                String fileName = predeclareList.get(i);
+                String fileNames[] = fileName.split("\\.");
+                CppClass cppClass = new CppClass(fileNames[fileNames.length - 2], predeclareList.get(i));
                 DefineNewClass(cppClass);
             }
         } catch (IOException e) {

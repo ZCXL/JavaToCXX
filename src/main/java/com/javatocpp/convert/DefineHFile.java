@@ -16,24 +16,24 @@ public class DefineHFile {
         FileOutputStream outer = null;
         try {
             outer = new FileOutputStream(headerFile);
-            outer.write(getFileInfo(headerFile.getName(), cppClass.getClassName()).getBytes("utf-8"));
+            outer.write(getFileInfo(cppClass.getFileName(), cppClass.getClassName()).getBytes("utf-8"));
             outer.write(getStartGrand(cppClass.getClassName()).getBytes("utf-8"));
             outer.write("\n".getBytes("utf-8"));
             outer.write(getInclude(cppClass).getBytes("utf-8"));
             outer.write("\n".getBytes("utf-8"));
             outer.write(getStartNameSpace().getBytes("utf-8"));
 
-            outer.write(getClassDefine(headerFile.getName()).getBytes("utf-8"));
+            outer.write(getClassDefine(cppClass.getFileName()).getBytes("utf-8"));
 
             /**
              * Define variable of method id or field id.
              */
             outer.write(getDefineID(cppClass).getBytes("utf-8"));
 
-            outer.write(getDefaultConstructor(headerFile.getName(),
+            outer.write(getDefaultConstructor(cppClass.getFileName(),
                         cppClass.getClassName(),
                         cppClass.isHasDefaultConstructor()).getBytes("utf-8"));
-            outer.write(getDeconstructor(headerFile.getName()).getBytes("utf-8"));
+            outer.write(getDeconstructor(cppClass.getFileName()).getBytes("utf-8"));
             /**
              * Print the field of a java object
              */
@@ -70,19 +70,19 @@ public class DefineHFile {
                 outer.write(getStaticDefineID(cppClass).getBytes("utf-8"));
             }
 
-            outer.write(getEndDefine(headerFile.getName()).getBytes("utf-8"));
+            outer.write(getEndDefine(cppClass.getFileName()).getBytes("utf-8"));
 
             if (staticFields.size() !=0 || staticMethodSet.size() != 0) {
-                outer.write(getMakeStaticClass(headerFile.getName(),
+                outer.write(getMakeStaticClass(cppClass.getFileName(),
                         cppClass.getClassName(), cppClass).getBytes("utf-8"));
 
                 for (int i = 0; i < staticFields.size(); i++) {
-                    outer.write(getStaticField(staticFields.get(i), headerFile.getName()).getBytes("utf-8"));
+                    outer.write(getStaticField(staticFields.get(i), cppClass.getFileName()).getBytes("utf-8"));
                 }
 
                 for (String key: staticMethodSet.keySet()) {
                     ArrayList<CppMethod> methods = staticMethodSet.get(key);
-                    outer.write(getStaticMethod(methods, headerFile.getName()).getBytes("utf-8"));
+                    outer.write(getStaticMethod(methods, cppClass.getFileName()).getBytes("utf-8"));
                 }
             }
 
@@ -218,7 +218,6 @@ public class DefineHFile {
 
     public static String getStaticField(CppField cppFiled, String fileName) {
         StringBuilder builder = new StringBuilder();
-        fileName = fileName.replace(".h", "");
 
         builder.append(Util.getType(cppFiled.getFieldType(), Util.RETURN) + " "
                 + fileName + "::get_" + cppFiled.getFieldName() + "() {\n");
@@ -298,7 +297,6 @@ public class DefineHFile {
     public static String getDefaultConstructor(String fileName, String className, boolean hasDefault) {
         StringBuilder builder = new StringBuilder();
         builder.append("public:\n");
-        fileName = fileName.replace(".h", "");
         if (!hasDefault) {
             builder.append("\t" + fileName + "(): " + fileName
                     + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
@@ -324,7 +322,6 @@ public class DefineHFile {
     public static String getDeconstructor(String fileName) {
         StringBuilder builder = new StringBuilder();
         builder.append("public:\n");
-        fileName = fileName.replace(".h", "");
         builder.append("\t~" + fileName + "() {\n");
         builder.append("\t}\n");
 
@@ -473,7 +470,6 @@ public class DefineHFile {
     public static String getStaticMethod(ArrayList<CppMethod> methods, String fileName) {
         StringBuilder builder = new StringBuilder();
         CppMethod cppMethod = methods.get(0);
-        fileName = fileName.replace(".h", "");
         String methodName = "";
         if (cppMethod.isConflict()) {
             methodName += "j";
@@ -557,7 +553,6 @@ public class DefineHFile {
     }
     public static String getMakeStaticClass(String fileName, String className, CppClass cppClass) {
         StringBuilder builder = new StringBuilder();
-        fileName = fileName.replace(".h", "");
         className = Util.getSign(className);
 
         ArrayList<String> staticFieldIDList = cppClass.getStaticFieldIDList();

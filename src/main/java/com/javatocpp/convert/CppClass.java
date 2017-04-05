@@ -28,7 +28,7 @@ public class CppClass {
     private ArrayList<String> predeclareClass = new ArrayList<>();
     private ArrayList<CppClass> innerClasses = new ArrayList<>();
 
-    public CppClass(String className) {
+    public CppClass(String fileName, String className) {
         this.fileName = fileName;
         if(className.contains(".h")) {
             className = className.substring(0, className.lastIndexOf("."));
