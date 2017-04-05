@@ -4,6 +4,7 @@ import com.javatocpp.log.Log;
 
 import java.lang.reflect.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Created by ZhuChao on 2017/3/14.
@@ -15,12 +16,17 @@ public class CppClass {
     private String className;
     private String fileName;
     private ArrayList<CppField> fieldList = new ArrayList<>();
+    private ArrayList<CppField> staticFieldList = new ArrayList<>();
     private ArrayList<CppConstructor> constructorList = new ArrayList<>();
-    private ArrayList<CppMethod> methodList = new ArrayList<>();
+    private HashMap<String, ArrayList<CppMethod>> methodSet = new HashMap<>();
+    private HashMap<String, ArrayList<CppMethod>> staticMethodSet = new HashMap<>();
     private ArrayList<String> fieldIDList = new ArrayList<>();
+    private ArrayList<String> staticFieldIDList = new ArrayList<>();
     private ArrayList<String> methodIDList = new ArrayList<>();
+    private ArrayList<String> staticMethodIDList = new ArrayList<>();
     private ArrayList<String> initMethodIDList = new ArrayList<>();
     private ArrayList<String> predeclareClass = new ArrayList<>();
+    private ArrayList<CppClass> innerClasses = new ArrayList<>();
 
     public CppClass(String className) {
         this.fileName = fileName;
@@ -40,6 +46,9 @@ public class CppClass {
         init();
     }
 
+    /**
+     * Got methods, constructors and field.
+     */
     private void init() {
         try {
             cls = Class.forName(className);
@@ -51,6 +60,9 @@ public class CppClass {
         }
     }
 
+    /**
+     * Parse all constructors in java class.
+     */
     private void getConstructors() {
         Constructor<?> cons[] = cls.getConstructors();
         for (int i = 0; i< cons.length; i++) {
@@ -71,6 +83,10 @@ public class CppClass {
             initMethodIDList.add(constructor.getToken());
         }
     }
+
+    /**
+     * Parse all methods in java class.
+     */
     private void getMethods() {
         Method[] methods = cls.getMethods();
         for (int i = 0; i < methods.length; i++) {
@@ -83,7 +99,9 @@ public class CppClass {
             if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
                 predeclareClass.add(innerType);
             }
+            String key = method.getMethodName();
             for(int j = 0; j< parameters.length; j++) {
+                key += parameters[j].getType().getName();
                 CppParameter param = new CppParameter(parameters[j].getType().getName(), parameters[j].getName());
                 innerType = Util.getNotInnerType(param.getParamType());
                 if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
@@ -91,12 +109,28 @@ public class CppClass {
                 }
                 method.addParam(param);
             }
+            method.setConflict(Util.filterKeyword(method.getMethodName()));
             method.constructSignature();
-            methodList.add(method);
-            methodIDList.add(method.getToken());
+            if (method.isStatic()) {
+                staticMethodIDList.add(method.getToken());
+            } else {
+                methodIDList.add(method.getToken());
+            }
+
+            ArrayList<CppMethod> methodList = methodSet.get(key);
+            if (methodList == null) {
+                methodList = new ArrayList<>();
+                methodList.add(method);
+                methodSet.put(key, methodList);
+            } else {
+                methodList.add(method);
+            }
         }
     }
 
+    /**
+     * Get all fields in java class.
+     */
     private void getFields() {
         Field[] fields = cls.getDeclaredFields();
         for (int i = 0; i < fields.length; i++) {
@@ -110,7 +144,11 @@ public class CppClass {
             }
             field.constructSignature();
             fieldList.add(field);
-            fieldIDList.add(field.getToken());
+            if (field.isStatic()) {
+                staticFieldIDList.add(field.getToken());
+            } else {
+                fieldIDList.add(field.getToken());
+            }
         }
     }
 
@@ -139,21 +177,25 @@ public class CppClass {
             }
             builder.append(");\n");
         }
-        for (int i = 0; i < methodList.size(); i++) {
-            CppMethod method= methodList.get(i);
-            builder.append("\t" + method.getPrivilege() + " " + method.getMethodType() + " " + method.getMethodName() + "(");
-            ArrayList<CppParameter> params = method.getParams();
-            for (int j = 0; j < params.size(); j++) {
-                CppParameter param = params.get(j);
-                if (j != 0) {
-                    builder.append(" ");
+
+        for (String key: methodSet.keySet()) {
+            ArrayList<CppMethod> methodList = methodSet.get(key);
+            for (int i = 0; i < methodList.size(); i++) {
+                CppMethod method = methodList.get(i);
+                builder.append("\t" + method.getPrivilege() + " " + method.getMethodType() + " " + method.getMethodName() + "(");
+                ArrayList<CppParameter> params = method.getParams();
+                for (int j = 0; j < params.size(); j++) {
+                    CppParameter param = params.get(j);
+                    if (j != 0) {
+                        builder.append(" ");
+                    }
+                    builder.append(param.getParamType() + " " + param.getParamName());
+                    if (j != params.size() - 1) {
+                        builder.append(",");
+                    }
                 }
-                builder.append(param.getParamType() + " " + param.getParamName());
-                if (j != params.size() - 1) {
-                    builder.append(",");
-                }
+                builder.append(");\n");
             }
-            builder.append(");\n");
         }
         builder.append("};\n");
         return builder.toString();
@@ -189,10 +231,6 @@ public class CppClass {
 
     public ArrayList<CppConstructor> getConstructorList() {
         return constructorList;
-    }
-
-    public ArrayList<CppMethod> getMethodList() {
-        return methodList;
     }
 
     public ArrayList<String> getFieldIDList() {
@@ -233,5 +271,33 @@ public class CppClass {
 
     public void setPredeclareClass(ArrayList<String> predeclareClass) {
         this.predeclareClass = predeclareClass;
+    }
+
+    public HashMap<String, ArrayList<CppMethod>> getMethodSet() {
+        return methodSet;
+    }
+
+    public ArrayList<CppField> getStaticFieldList() {
+        return staticFieldList;
+    }
+
+    public void addStaticField(CppField cppField) {
+        staticFieldList.add(cppField);
+    }
+
+    public HashMap<String, ArrayList<CppMethod>> getStaticMethodSet() {
+        return staticMethodSet;
+    }
+
+    public void addStaticMethod(String key, ArrayList<CppMethod> methods) {
+        staticMethodSet.put(key, methods);
+    }
+
+    public ArrayList<String> getStaticFieldIDList() {
+        return staticFieldIDList;
+    }
+
+    public ArrayList<String> getStaticMethodIDList() {
+        return staticMethodIDList;
     }
 }

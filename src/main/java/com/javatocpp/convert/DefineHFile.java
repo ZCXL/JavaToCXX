@@ -4,6 +4,7 @@ import com.javatocpp.log.Log;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Date;
 import java.text.SimpleDateFormat;
 
@@ -38,7 +39,7 @@ public class DefineHFile {
              */
             ArrayList<CppField> fileds = cppClass.getFieldList();
             for (int i = 0; i < fileds.size(); i++) {
-                outer.write(getField(fileds.get(i)).getBytes("utf-8"));
+                outer.write(getField(fileds.get(i), cppClass).getBytes("utf-8"));
             }
 
             /**
@@ -57,11 +58,34 @@ public class DefineHFile {
             /**
              * Print method of a java method
              */
-            ArrayList<CppMethod> methods = cppClass.getMethodList();
-            for (int i = 0; i < methods.size(); i++) {
-                outer.write(getMethod(methods.get(i)).getBytes("utf-8"));
+            HashMap<String, ArrayList<CppMethod>> methodSet = cppClass.getMethodSet();
+            for (String key: methodSet.keySet()) {
+                ArrayList<CppMethod> methods = methodSet.get(key);
+                outer.write(getMethod(methods, key, cppClass).getBytes("utf-8"));
             }
+            ArrayList<CppField> staticFields = cppClass.getStaticFieldList();
+            HashMap<String, ArrayList<CppMethod>> staticMethodSet = cppClass.getStaticMethodSet();
+            if (staticFields.size() !=0 || staticMethodSet.size() != 0) {
+                outer.write(getDeclareStaticClass().getBytes("utf-8"));
+                outer.write(getStaticDefineID(cppClass).getBytes("utf-8"));
+            }
+
             outer.write(getEndDefine(headerFile.getName()).getBytes("utf-8"));
+
+            if (staticFields.size() !=0 || staticMethodSet.size() != 0) {
+                outer.write(getMakeStaticClass(headerFile.getName(),
+                        cppClass.getClassName(), cppClass).getBytes("utf-8"));
+
+                for (int i = 0; i < staticFields.size(); i++) {
+                    outer.write(getStaticField(staticFields.get(i), headerFile.getName()).getBytes("utf-8"));
+                }
+
+                for (String key: staticMethodSet.keySet()) {
+                    ArrayList<CppMethod> methods = staticMethodSet.get(key);
+                    outer.write(getStaticMethod(methods, headerFile.getName()).getBytes("utf-8"));
+                }
+            }
+
 
             outer.write(getEndNameSpace().getBytes("utf-8"));
             outer.write("\n".getBytes("utf-8"));
@@ -151,29 +175,80 @@ public class DefineHFile {
         builder.append("DEFINE_CLASS(" + className.replace(".h", "") + ")\n");
         return builder.toString();
     }
-    public static String getField(CppField cppFiled) {
+    public static String getField(CppField cppFiled, CppClass cppClass) {
         StringBuilder builder = new StringBuilder();
-        builder.append(getPrivilege(cppFiled.getPrivilege()) + ":\n");
-        builder.append("\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " get_" + cppFiled.getFieldName() + "() {\n");
-        builder.append("\t\tif (" + cppFiled.getToken() + " == NULL) {\n");
-        builder.append("\t\t\t" + cppFiled.getToken() + " = " + "_env->GetFieldID(_clazz, \"" +
+        if (!cppFiled.isStatic()) {
+            builder.append(getPrivilege(cppFiled.getPrivilege()) + ":\n");
+            builder.append("\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " get_" + cppFiled.getFieldName() + "() {\n");
+            builder.append("\t\tif (" + cppFiled.getToken() + " == NULL) {\n");
+            builder.append("\t\t\t" + cppFiled.getToken() + " = " + "_env->GetFieldID(_clazz, \"" +
+                    cppFiled.getFieldName() + "\", \"" + cppFiled.getSignature() + "\");\n");
+            builder.append("\t\t}\n");
+            builder.append("\t\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " ret = " +
+                    Util.getType(cppFiled.getFieldType(), Util.RETURN) + "(" +
+                    "_env->" + Util.getFieldID(cppFiled.getFieldType()) +
+                    "(_object, " + cppFiled.getToken() + "));\n");
+            builder.append("\t\treturn ret;\n");
+            builder.append("\t}\n");
+            if (!cppFiled.isFinal()) {
+                builder.append("\tvoid " + "set_" + cppFiled.getFieldName() + "("
+                        + Util.getType(cppFiled.getFieldType(), Util.PARAM)
+                        + " object) {\n");
+                builder.append("\t\tif (" + cppFiled.getToken() + " == NULL) {\n");
+                builder.append("\t\t\t" + cppFiled.getToken() + " = " + "_env->GetFieldID(_clazz, \"" +
                         cppFiled.getFieldName() + "\", \"" + cppFiled.getSignature() + "\");\n");
-        builder.append("\t\t}\n");
-        builder.append("\t\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " ret = "+
-                        Util.getType(cppFiled.getFieldType(), Util.RETURN) + "(" +
-                        "_env->" + Util.getFieldID(cppFiled.getFieldType()) +
-                        "(_object, " + cppFiled.getToken() + "));\n");
-        builder.append("\t\treturn ret;\n");
-        builder.append("\t}\n");
-        builder.append("\tvoid " + "set_" + cppFiled.getFieldName() + "(" + Util.getType(cppFiled.getFieldType(), Util.PARAM) +
-                        " object) {\n");
-        builder.append("\t\tif (" + cppFiled.getToken() + " == NULL) {\n");
-        builder.append("\t\t\t" + cppFiled.getToken() + " = " + "_env->GetFieldID(_clazz, \"" +
+                builder.append("\t\t}\n");
+                builder.append("\t\t" + "_env->" + Util.setFieldID(cppFiled.getFieldType())
+                        + "(_object, " + cppFiled.getToken() + ", " + "object);\n");
+                builder.append("\t}\n");
+            }
+        } else {
+            builder.append(getPrivilege(cppFiled.getPrivilege()) + ":\n");
+            builder.append("\tstatic " + Util.getType(cppFiled.getFieldType(), Util.RETURN)
+                    + " get_" + cppFiled.getFieldName() + "();\n");
+            if (!cppFiled.isFinal()) {
+                builder.append("\tstatic void " + "set_" + cppFiled.getFieldName() + "("
+                        + Util.getType(cppFiled.getFieldType(), Util.PARAM)
+                        + " object);\n");
+            }
+            cppClass.addStaticField(cppFiled);
+        }
+        return builder.toString();
+    }
+
+    public static String getStaticField(CppField cppFiled, String fileName) {
+        StringBuilder builder = new StringBuilder();
+        fileName = fileName.replace(".h", "");
+
+        builder.append(Util.getType(cppFiled.getFieldType(), Util.RETURN) + " "
+                + fileName + "::get_" + cppFiled.getFieldName() + "() {\n");
+        builder.append("\tjclass object_class = get_java_static_class();\n");
+        builder.append("\tJNIEnv* env = get_java_virtual_machine_env();\n");
+        builder.append("\tif (" + cppFiled.getToken() + " == NULL) {\n");
+        builder.append("\t\t" + cppFiled.getToken() + " = " + "env->GetStaticFieldID(object_class, \"" +
                 cppFiled.getFieldName() + "\", \"" + cppFiled.getSignature() + "\");\n");
-        builder.append("\t\t}\n");
-        builder.append("\t\t" + "_env->" + Util.setFieldID(cppFiled.getFieldType()) +"(_object, " + cppFiled.getToken() +
-                        ", " + "object);\n");
         builder.append("\t}\n");
+        builder.append("\t" + Util.getType(cppFiled.getFieldType(), Util.RETURN) + " ret = " +
+                Util.getType(cppFiled.getFieldType(), Util.RETURN) + "(" +
+                "env->" + Util.getStaticFieldID(cppFiled.getFieldType()) +
+                "(object_class, " + cppFiled.getToken() + "));\n");
+        builder.append("\treturn ret;\n");
+        builder.append("}\n");
+        if (!cppFiled.isFinal()) {
+            builder.append("void " + fileName + "::set_" + cppFiled.getFieldName() + "("
+                    + Util.getType(cppFiled.getFieldType(), Util.PARAM)
+                    + " object) {\n");
+            builder.append("\tjclass object_class = get_java_static_class();\n");
+            builder.append("\tJNIEnv* env = get_java_virtual_machine_env();\n");
+            builder.append("\tif (" + cppFiled.getToken() + " == NULL) {\n");
+            builder.append("\t\t" + cppFiled.getToken() + " = " + "env->GetStaticFieldID(object_class, \"" +
+                    cppFiled.getFieldName() + "\", \"" + cppFiled.getSignature() + "\");\n");
+            builder.append("\t}\n");
+            builder.append("\t" + "env->" + Util.setStaticFieldID(cppFiled.getFieldType())
+                    + "(object_class, " + cppFiled.getToken() + ", " + "object);\n");
+            builder.append("}\n");
+        }
+
         return builder.toString();
     }
 
@@ -191,6 +266,24 @@ public class DefineHFile {
         ArrayList<String> initMethodIDList = cppClass.getInitMethodIDList();
         for (int i = 0; i < initMethodIDList.size(); i++) {
             builder.append("\tjmethodID " + initMethodIDList.get(i) + ";\n");
+        }
+
+        return builder.toString();
+    }
+
+    public static String getStaticDefineID(CppClass cppClass) {
+        ArrayList<String> staticFieldIDList = cppClass.getStaticFieldIDList();
+        ArrayList<String> staticMethodIDList = cppClass.getStaticMethodIDList();
+        if (staticFieldIDList.size() == 0 && staticMethodIDList.size() == 0) {
+            return "\n";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("private:\n");
+        for (int i = 0; i < staticFieldIDList.size(); i++) {
+            builder.append("\tstatic jfieldID " + staticFieldIDList.get(i) + ";\n");
+        }
+        for (int i = 0; i < staticMethodIDList.size(); i++) {
+            builder.append("\tstatic jmethodID " + staticMethodIDList.get(i) + ";\n");
         }
 
         return builder.toString();
@@ -294,10 +387,20 @@ public class DefineHFile {
         builder.append("\t}\n");
         return builder.toString();
     }
-    public static String getMethod(CppMethod cppMethod) {
+    public static String getMethod(ArrayList<CppMethod> methods, String key, CppClass cppClass) {
         StringBuilder builder = new StringBuilder();
+        CppMethod cppMethod = methods.get(0);
         builder.append(getPrivilege(cppMethod.getPrivilege()) + ":\n");
-        builder.append("\t" + Util.getType(cppMethod.getMethodType(), Util.RETURN) + " " + cppMethod.getMethodName() + "(");
+        String methodName = "";
+        if (cppMethod.isConflict()) {
+            methodName += "j";
+        }
+        methodName += cppMethod.getMethodName();
+        if (cppMethod.isStatic()) {
+            builder.append("\tstatic " + Util.getType(cppMethod.getMethodType(), Util.RETURN) + " " + methodName + "(");
+        } else {
+            builder.append("\t" + Util.getType(cppMethod.getMethodType(), Util.RETURN) + " " + methodName + "(");
+        }
         ArrayList<CppParameter> params = cppMethod.getParams();
         for (int i = 0; i < params.size(); i++) {
             CppParameter param = params.get(i);
@@ -306,12 +409,36 @@ public class DefineHFile {
                 builder.append(", ");
             }
         }
+        /**
+         * Add default parameter
+         */
+        if (params.size() != 0) {
+            builder.append(", ");
+        }
+        if (cppMethod.isStatic()) {
+            builder.append("std::string sign");
+            builder.append(");\n");
+            cppClass.addStaticMethod(key, methods);
+            return builder.toString();
+        }
+        builder.append("std::string sign = \"" + Util.getType(cppMethod.getMethodType(), Util.PARAM) + "\"");
         builder.append(") {\n");
-        builder.append("\t\tif (" + cppMethod.getToken() + " == NULL) {\n");
-        builder.append("\t\t\t" + cppMethod.getToken() + " = _env->GetMethodID(_clazz, \"" +
-                cppMethod.getMethodName() + "\", \"" +
-                cppMethod.getSignature() + "\");\n");
-        builder.append("\t\t}\n");
+        builder.append("\t\tjmethodID method_id = NULL;\n");
+        for (int i = 0; i < methods.size(); i++) {
+            CppMethod method = methods.get(i);
+            String sign = Util.getType(method.getMethodType(), Util.PARAM);
+            builder.append("\t\tif (sign == \"" + sign + "\") {\n");
+            builder.append("\t\t\tif (" + method.getToken() + " == NULL) {\n");
+            builder.append("\t\t\t\t" + method.getToken() + " = _env->GetMethodID(_clazz, \"" +
+                    method.getMethodName() + "\", \"" +
+                    method.getSignature() + "\");\n");
+            builder.append("\t\t\t\tmethod_id = " + method.getToken() + ";\n");
+            builder.append("\t\t\t} else {\n");
+            builder.append("\t\t\t\tmethod_id = " + method.getToken() + ";\n");
+            builder.append("\t\t\t}\n");
+            builder.append("\t\t}\n");
+        }
+
         builder.append("\t\t");
         boolean isReturn =false;
         if (!Util.getType(cppMethod.getMethodType(), Util.RETURN).equals("void")) {
@@ -319,8 +446,7 @@ public class DefineHFile {
             builder.append(Util.getType(cppMethod.getMethodType(), Util.RETURN) + " ret = " +
                     Util.getType(cppMethod.getMethodType(), Util.RETURN) + "(");
         }
-        builder.append("_env->" + Util.getMethodID(cppMethod.getMethodType()) + "(_object, " +
-                        cppMethod.getToken());
+        builder.append("_env->" + Util.getMethodID(cppMethod.getMethodType()) + "(_object, method_id");
         for (int i = 0; i < params.size(); i++) {
             builder.append(", ");
             boolean isObject = false;
@@ -341,6 +467,115 @@ public class DefineHFile {
             builder.append("\t\treturn ret;\n");
         }
         builder.append("\t}\n");
+        return builder.toString();
+    }
+
+    public static String getStaticMethod(ArrayList<CppMethod> methods, String fileName) {
+        StringBuilder builder = new StringBuilder();
+        CppMethod cppMethod = methods.get(0);
+        fileName = fileName.replace(".h", "");
+        String methodName = "";
+        if (cppMethod.isConflict()) {
+            methodName += "j";
+        }
+        methodName += cppMethod.getMethodName();
+        builder.append(Util.getType(cppMethod.getMethodType(), Util.RETURN) + " "
+                + fileName + "::" + methodName + "(");
+        ArrayList<CppParameter> params = cppMethod.getParams();
+        for (int i = 0; i < params.size(); i++) {
+            CppParameter param = params.get(i);
+            builder.append(Util.getType(param.getParamType(), Util.PARAM) + " " + param.getParamName());
+            if (i != params.size() - 1) {
+                builder.append(", ");
+            }
+        }
+        /**
+         * Add default parameter
+         */
+        if (params.size() != 0) {
+            builder.append(", ");
+        }
+        builder.append("std::string sign = \"" + Util.getType(cppMethod.getMethodType(), Util.PARAM) + "\"");
+        builder.append(") {\n");
+        builder.append("\tjmethodID method_id = NULL;\n");
+        builder.append("\tjclass object_class = get_java_static_class();\n");
+        builder.append("\tJNIEnv* env = get_java_virtual_machine_env();\n");
+        for (int i = 0; i < methods.size(); i++) {
+            CppMethod method = methods.get(i);
+            String sign = Util.getType(method.getMethodType(), Util.PARAM);
+            builder.append("\tif (sign == \"" + sign + "\") {\n");
+            builder.append("\t\tif (" + method.getToken() + " == NULL) {\n");
+            builder.append("\t\t\t" + method.getToken() + " = env->GetStaticMethodID(object_class, \"" +
+                    method.getMethodName() + "\", \"" +
+                    method.getSignature() + "\");\n");
+            builder.append("\t\t\tmethod_id = " + method.getToken() + ";\n");
+            builder.append("\t\t} else {\n");
+            builder.append("\t\t\tmethod_id = " + method.getToken() + ";\n");
+            builder.append("\t\t}\n");
+            builder.append("\t}\n");
+        }
+
+        builder.append("\t");
+        boolean isReturn =false;
+        if (!Util.getType(cppMethod.getMethodType(), Util.RETURN).equals("void")) {
+            isReturn = true;
+            builder.append(Util.getType(cppMethod.getMethodType(), Util.RETURN) + " ret = " +
+                    Util.getType(cppMethod.getMethodType(), Util.RETURN) + "(");
+        }
+        builder.append("env->" + Util.getStaticMethodID(cppMethod.getMethodType()) + "(object_class, method_id");
+        for (int i = 0; i < params.size(); i++) {
+            builder.append(", ");
+            boolean isObject = false;
+            if (Util.isObjectOrNot(params.get(i).getParamType())) {
+                isObject = true;
+                builder.append("jobject(");
+            }
+            builder.append(params.get(i).getParamName());
+            if (isObject) {
+                builder.append(")");
+            }
+        }
+        if (isReturn) {
+            builder.append(")");
+        }
+        builder.append(");\n");
+        if (isReturn) {
+            builder.append("\treturn ret;\n");
+        }
+        builder.append("}\n");
+        return builder.toString();
+    }
+    public static String getDeclareStaticClass() {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append("private:\n");
+        builder.append("\tstatic bridge::BridgeObject static_bridge_object;\n");
+        builder.append("\tstatic jclass get_java_static_class();\n");
+        builder.append("\tstatic JNIEnv* get_java_virtual_machine_env();\n");
+
+        return builder.toString();
+    }
+    public static String getMakeStaticClass(String fileName, String className, CppClass cppClass) {
+        StringBuilder builder = new StringBuilder();
+        fileName = fileName.replace(".h", "");
+        className = Util.getSign(className);
+
+        ArrayList<String> staticFieldIDList = cppClass.getStaticFieldIDList();
+        ArrayList<String> staticMethodIDList = cppClass.getStaticMethodIDList();
+        for (int i = 0; i < staticFieldIDList.size(); i++) {
+            builder.append("jfieldID " + fileName + "::" + staticFieldIDList.get(i) + " = NULL;\n");
+        }
+        for (int i = 0; i < staticMethodIDList.size(); i++) {
+            builder.append("jmethodID " + fileName + "::" + staticMethodIDList.get(i) + " = NULL;\n");
+        }
+        builder.append("bridge::BridgeObject " + fileName + "::static_bridge_object(\"" + className + "\");\n");
+        builder.append("jclass " + fileName + "::get_java_static_class() {\n");
+        builder.append("\treturn static_bridge_object.getClass();\n");
+        builder.append("}\n");
+        builder.append("JNIEnv* " + fileName + "::get_java_virtual_machine_env() {\n");
+        builder.append("\treturn static_bridge_object.getEnv();\n");
+        builder.append("}\n");
+
         return builder.toString();
     }
     public static String getEndDefine(String className) {

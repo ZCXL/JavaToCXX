@@ -14,9 +14,18 @@ public class CppMethod implements Token{
     private String signature;
     private String token;
     private ArrayList<CppParameter> params = new ArrayList<>();
+    private boolean isConflict = false;
+    private boolean isStatic =false;
+    private boolean isFinal = true;
 
     public CppMethod(String privilege, String methodType, String methodName) {
         this.privilege = privilege;
+        if (privilege.contains("static")) {
+            isStatic = true;
+        }
+        if (privilege.contains("final")) {
+            isFinal = true;
+        }
         this.methodType = methodType;
         this.methodName = methodName;
         token = "";
@@ -88,5 +97,29 @@ public class CppMethod implements Token{
         }
         token = "_method_" + methodName + "_" + Util.getToken(builder.toString());
         return token;
+    }
+
+    public boolean isConflict() {
+        return isConflict;
+    }
+
+    public void setConflict(boolean conflict) {
+        isConflict = conflict;
+    }
+
+    public boolean isStatic() {
+        return isStatic;
+    }
+
+    public void setStatic(boolean aStatic) {
+        isStatic = aStatic;
+    }
+
+    public boolean isFinal() {
+        return isFinal;
+    }
+
+    public void setFinal(boolean aFinal) {
+        isFinal = aFinal;
     }
 }

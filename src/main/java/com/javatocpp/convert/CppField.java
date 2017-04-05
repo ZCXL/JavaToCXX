@@ -10,8 +10,16 @@ public class CppField implements Token{
     private String fieldName;
     private String fieldType;
     private String signature;
+    private boolean isStatic = false;
+    private boolean isFinal = false;
     public CppField(String privilege, String fieldType, String fieldName) {
         this.privilege = privilege;
+        if (privilege.contains("static")) {
+            isStatic = true;
+        }
+        if (privilege.contains("final")) {
+            isFinal = true;
+        }
         this.fieldType = fieldType;
         this.fieldName = fieldName;
     }
@@ -55,5 +63,21 @@ public class CppField implements Token{
     @Override
     public String getToken() {
         return "_field_" + fieldName;
+    }
+
+    public boolean isStatic() {
+        return isStatic;
+    }
+
+    public void setStatic(boolean aStatic) {
+        isStatic = aStatic;
+    }
+
+    public boolean isFinal() {
+        return isFinal;
+    }
+
+    public void setFinal(boolean aFinal) {
+        isFinal = aFinal;
     }
 }

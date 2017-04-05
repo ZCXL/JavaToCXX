@@ -10,7 +10,7 @@ public class Person {
     private int[] grades;
     private String[] test;
     private StringBuilder builder;
-
+    public static String staticString = "hello,world";
     public Person() {
         name = new String("lllll");
         grades = new int[10];
@@ -45,5 +45,11 @@ public class Person {
     }
     public String[] getTest() {
         return  test;
+    }
+    public static int getStatic(int a, int b) {
+        return 10;
+    }
+    public static String getStatic(int a) {
+        return "hh";
     }
 }
