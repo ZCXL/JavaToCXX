@@ -52,4 +52,26 @@ public class Person {
     public static String getStatic(int a) {
         return "hh";
     }
+
+    public class InnerClass {
+        private int a;
+        private String b;
+        public InnerClass(){
+            a = 10;
+            b = "Great Day";
+        }
+        public int getA() {
+            return a;
+        }
+        public String getB() {
+            return b;
+        }
+        class InnerInnerClass {
+            private int c;
+            private int d;
+            public InnerInnerClass() {
+
+            }
+        }
+    }
 }

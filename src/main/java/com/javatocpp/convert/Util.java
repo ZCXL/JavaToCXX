@@ -92,8 +92,15 @@ public class Util {
              * Process some classes that is not imported,
              * but used.
              */
-            if (!Convert.findClass(className) && isImport) {
+            if (!Convert.findClass(className) && !className.contains("$") && isImport) {
                 Convert.addPredeclareClass(className);
+            }
+            /**
+             * filter inner class.
+             */
+            if (className.contains("$")) {
+                String tmp = dirs[dirs.length - 1];
+                return tmp.substring(tmp.lastIndexOf("$") + 1, tmp.length());
             }
             return dirs[dirs.length - 1];
         }
@@ -138,12 +145,19 @@ public class Util {
              * Process some classes that is not imported,
              * but used.
              */
-            if (!Convert.findClass(type)) {
+            if (!Convert.findClass(type) && !type.contains("$")) {
                 Convert.addPredeclareClass(type);
             }
             if (result == RETURN) {
                 return "jobject";
             } else {
+                /**
+                 * Filter inner class.
+                 */
+                if (type.contains("$")) {
+                    String tmp = dirs[dirs.length - 1];
+                    return tmp.substring(tmp.lastIndexOf("$") + 1, tmp.length());
+                }
                 return dirs[dirs.length - 1];
             }
         }
@@ -185,6 +199,9 @@ public class Util {
                     subType = subType.substring(1);
                     subType = subType.replaceAll(";", "");
                 }
+                if (subType.contains("$")) {
+                    return "";
+                }
 
                 return subType;
             }
@@ -196,6 +213,9 @@ public class Util {
             if (type.startsWith("L")) {
                 type = type.substring(1);
                 type = type.replaceAll(";", "");
+            }
+            if (type.contains("$")) {
+                return "";
             }
 
             return type;

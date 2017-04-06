@@ -143,6 +143,9 @@ public class Convert {
                 DefineNewClass(classList.get(i));
             }
 
+            /**
+             * Produce class code which is not imported.
+             */
             for (int i = 0; i < predeclareList.size(); i++) {
                 Log.notice("Predeclare class[%s]\n", predeclareList.get(i));
                 String fileName = predeclareList.get(i);
@@ -177,8 +180,36 @@ public class Convert {
                 return;
             }
         }
-        if (!DefineHFile.defineHFile(cppClass, classFile)) {
-            Log.error("Msg: parse class file[%s] error.\n", cppClass.getClassName());
+        FileOutputStream outer = null;
+        try {
+            outer = new FileOutputStream(classFile);
+            outer.write(DefineHFile.getFileInfo(cppClass.getFileName(), cppClass.getClassName()).getBytes("utf-8"));
+            outer.write(DefineHFile.getStartGrand(cppClass.getClassName()).getBytes("utf-8"));
+            outer.write("\n".getBytes("utf-8"));
+            outer.write(DefineHFile.getInclude(cppClass).getBytes("utf-8"));
+            outer.write("\n".getBytes("utf-8"));
+            outer.write(DefineHFile.getStartNameSpace().getBytes("utf-8"));
+            if (!DefineHFile.defineHFile(cppClass, outer)) {
+                Log.error("Msg: parse class file[%s] error.\n", cppClass.getClassName());
+                throw new Exception("Error");
+            }
+            if (!DefineHFile.produceStaticCode(cppClass, outer)) {
+                Log.error("Msg: parse class file[%s] error.\n", cppClass.getClassName());
+                throw new Exception("Error");
+            }
+            outer.write(DefineHFile.getEndNameSpace().getBytes("utf-8"));
+            outer.write("\n".getBytes("utf-8"));
+            outer.write(DefineHFile.getEndGrand().getBytes("utf-8"));
+        }catch (Exception e) {
+            Log.error("Msg: generate c++ header file error.[%s]\n", e.toString());
+        } finally {
+            if (outer != null) {
+                try {
+                    outer.close();
+                } catch (IOException e) {
+                    Log.error("Msg: close c++ header file error.[%s]\n", e.toString());
+                }
+            }
         }
     }
 

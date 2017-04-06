@@ -5,6 +5,7 @@ import com.javatocpp.log.Log;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Date;
 import java.text.SimpleDateFormat;
 
@@ -12,17 +13,8 @@ import java.text.SimpleDateFormat;
  * Created by ZhuChao on 2017/3/15.
  */
 public class DefineHFile {
-    public static boolean defineHFile(CppClass cppClass, File headerFile) {
-        FileOutputStream outer = null;
+    public static boolean defineHFile(CppClass cppClass, FileOutputStream outer) {
         try {
-            outer = new FileOutputStream(headerFile);
-            outer.write(getFileInfo(cppClass.getFileName(), cppClass.getClassName()).getBytes("utf-8"));
-            outer.write(getStartGrand(cppClass.getClassName()).getBytes("utf-8"));
-            outer.write("\n".getBytes("utf-8"));
-            outer.write(getInclude(cppClass).getBytes("utf-8"));
-            outer.write("\n".getBytes("utf-8"));
-            outer.write(getStartNameSpace().getBytes("utf-8"));
-
             outer.write(getClassDefine(cppClass.getFileName()).getBytes("utf-8"));
 
             /**
@@ -31,8 +23,8 @@ public class DefineHFile {
             outer.write(getDefineID(cppClass).getBytes("utf-8"));
 
             outer.write(getDefaultConstructor(cppClass.getFileName(),
-                        cppClass.getClassName(),
-                        cppClass.isHasDefaultConstructor()).getBytes("utf-8"));
+                    cppClass.getClassName(),
+                    cppClass.isHasDefaultConstructor()).getBytes("utf-8"));
             outer.write(getDeconstructor(cppClass.getFileName()).getBytes("utf-8"));
             /**
              * Print the field of a java object
@@ -59,49 +51,58 @@ public class DefineHFile {
              * Print method of a java method
              */
             HashMap<String, ArrayList<CppMethod>> methodSet = cppClass.getMethodSet();
-            for (String key: methodSet.keySet()) {
+            for (String key : methodSet.keySet()) {
                 ArrayList<CppMethod> methods = methodSet.get(key);
                 outer.write(getMethod(methods, key, cppClass).getBytes("utf-8"));
             }
             ArrayList<CppField> staticFields = cppClass.getStaticFieldList();
             HashMap<String, ArrayList<CppMethod>> staticMethodSet = cppClass.getStaticMethodSet();
-            if (staticFields.size() !=0 || staticMethodSet.size() != 0) {
+            if (staticFields.size() != 0 || staticMethodSet.size() != 0) {
                 outer.write(getDeclareStaticClass().getBytes("utf-8"));
                 outer.write(getStaticDefineID(cppClass).getBytes("utf-8"));
             }
 
-            outer.write(getEndDefine(cppClass.getFileName()).getBytes("utf-8"));
+            ArrayList<CppClass> innerClasses = cppClass.getInnerClasses();
+            for (int i = 0; i < innerClasses.size(); i++) {
+                CppClass innerClass = innerClasses.get(i);
+                String tmp = getPrivilege(innerClass.getPrivilege()) + ":\n";
+                outer.write(tmp.getBytes("utf-8"));
+                defineHFile(innerClass, outer);
+            }
 
-            if (staticFields.size() !=0 || staticMethodSet.size() != 0) {
+            outer.write(getEndDefine(cppClass.getFileName()).getBytes("utf-8"));
+        }catch (Exception e) {
+            Log.error("Msg: produce class file[%s] error. error[%s]\n", cppClass.getClassName(), e.toString());
+            return false;
+        }
+        return true;
+    }
+    public static boolean produceStaticCode(CppClass cppClass, FileOutputStream outer) {
+        try {
+            ArrayList<CppField> staticFields = cppClass.getStaticFieldList();
+            HashMap<String, ArrayList<CppMethod>> staticMethodSet = cppClass.getStaticMethodSet();
+            if (staticFields.size() != 0 || staticMethodSet.size() != 0) {
                 outer.write(getMakeStaticClass(cppClass.getFileName(),
                         cppClass.getClassName(), cppClass).getBytes("utf-8"));
 
                 for (int i = 0; i < staticFields.size(); i++) {
-                    outer.write(getStaticField(staticFields.get(i), cppClass.getFileName()).getBytes("utf-8"));
+                    outer.write(getStaticField(staticFields.get(i), cppClass.getFileName(), cppClass)
+                            .getBytes("utf-8"));
                 }
 
-                for (String key: staticMethodSet.keySet()) {
+                for (String key : staticMethodSet.keySet()) {
                     ArrayList<CppMethod> methods = staticMethodSet.get(key);
-                    outer.write(getStaticMethod(methods, cppClass.getFileName()).getBytes("utf-8"));
+                    outer.write(getStaticMethod(methods, cppClass.getFileName(), cppClass)
+                            .getBytes("utf-8"));
                 }
             }
-
-
-            outer.write(getEndNameSpace().getBytes("utf-8"));
-            outer.write("\n".getBytes("utf-8"));
-            outer.write(getEndGrand().getBytes("utf-8"));
-        } catch (Exception e) {
-            Log.error("Msg: generate c++ header file error.[%s]\n", e.toString());
+            ArrayList<CppClass> innerClasses = cppClass.getInnerClasses();
+            for (int i = 0; i < innerClasses.size(); i++) {
+                produceStaticCode(innerClasses.get(i), outer);
+            }
+        }catch (Exception e) {
+            Log.error("Msg: produce static code error. file[%s] error[%s]\n", cppClass.getClassName(), e.toString());
             return false;
-        } finally {
-            if (outer != null) {
-                try {
-                    outer.close();
-                } catch (IOException e) {
-                    Log.error("Msg: close c++ header file error.[%s]\n", e.toString());
-                    return false;
-                }
-            }
         }
         return true;
     }
@@ -135,13 +136,37 @@ public class DefineHFile {
         builder.append("#include <bridge_object/common.h>\n");
         builder.append("#include <bridge_object/java.h>\n");
 
+        HashSet<String> importClassSet = new HashSet<>();
+        getInclude(cppClass, importClassSet);
+
+        for(String instruction: importClassSet) {
+            builder.append(instruction);
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Get include instruction recursively.
+     * @param cppClass
+     * @param importClassSet
+     */
+    public static void getInclude(CppClass cppClass, HashSet<String> importClassSet) {
         ArrayList<String> predeclareClasses = cppClass.getPredeclareClass();
-        String[] classDirs = cppClass.getClassName().split("\\.");
+        String className = cppClass.getClassName();
+        /**
+         * filter outer class.
+         */
+        if (className.contains("$")) {
+            className = className.substring(0, className.indexOf("$"));
+        }
+        String[] classDirs = className.split("\\.");
         for (int i = 0; i < predeclareClasses.size(); i++) {
-            if (cppClass.getClassName().equals(predeclareClasses.get(i))) {
+            if (className.equals(predeclareClasses.get(i))) {
                 continue;
             }
-            builder.append("#include \"");
+
+            String importInstruction = "";
+            importInstruction += "#include \"";
             String[] importDirs = predeclareClasses.get(i).split("\\.");
             int j = 0;
             for (int k = 0; k < classDirs.length && k < importDirs.length; k++) {
@@ -154,15 +179,19 @@ public class DefineHFile {
             int level1 = classDirs.length - j;
             int level2 = importDirs.length - j;
             for (int k = 0; k < level1 - 1; k++) {
-                builder.append("../");
+                importInstruction += "../";
             }
 
             for (int k = j; k < importDirs.length - 1; k++) {
-                builder.append(importDirs[k] + "/");
+                importInstruction += importDirs[k] + "/";
             }
-            builder.append(importDirs[importDirs.length - 1] + ".h\"\n");
+            importInstruction += importDirs[importDirs.length - 1] + ".h\"\n";
+            importClassSet.add(importInstruction);
         }
-        return builder.toString();
+        ArrayList<CppClass> innerClasses = cppClass.getInnerClasses();
+        for (int i = 0; i < innerClasses.size(); i++) {
+            getInclude(innerClasses.get(i), importClassSet);
+        }
     }
     public static String getStartNameSpace() {
         return "DEFINE_START_NAMESPACE()\n";
@@ -216,10 +245,11 @@ public class DefineHFile {
         return builder.toString();
     }
 
-    public static String getStaticField(CppField cppFiled, String fileName) {
+    public static String getStaticField(CppField cppFiled, String fileName, CppClass cppClass) {
         StringBuilder builder = new StringBuilder();
 
         builder.append(Util.getType(cppFiled.getFieldType(), Util.RETURN) + " "
+                + cppClass.getStaticPrefix()
                 + fileName + "::get_" + cppFiled.getFieldName() + "() {\n");
         builder.append("\tjclass object_class = get_java_static_class();\n");
         builder.append("\tJNIEnv* env = get_java_virtual_machine_env();\n");
@@ -234,7 +264,8 @@ public class DefineHFile {
         builder.append("\treturn ret;\n");
         builder.append("}\n");
         if (!cppFiled.isFinal()) {
-            builder.append("void " + fileName + "::set_" + cppFiled.getFieldName() + "("
+            builder.append("void " + cppClass.getStaticPrefix()
+                    + fileName + "::set_" + cppFiled.getFieldName() + "("
                     + Util.getType(cppFiled.getFieldType(), Util.PARAM)
                     + " object) {\n");
             builder.append("\tjclass object_class = get_java_static_class();\n");
@@ -299,17 +330,17 @@ public class DefineHFile {
         builder.append("public:\n");
         if (!hasDefault) {
             builder.append("\t" + fileName + "(): " + fileName
-                    + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
+                    + "(std::string(\"" + Util.getSign(className) + "\")) {\n");
             builder.append("\t}\n");
         }
         builder.append("\t" + fileName + "(jobject object): " + fileName
-                + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
+                + "(std::string(\"" + Util.getSign(className) + "\")) {\n");
         builder.append("\t\tif (object != NULL) {\n");
         builder.append("\t\t\t_object = object;\n");
         builder.append("\t\t}\n");
         builder.append("\t}\n");
         builder.append("\t" + fileName + "(" + fileName + "& obj): " + fileName
-                + "(std::string(\"" + Util.getSign(className).replace(".", "/") + "\")) {\n");
+                + "(std::string(\"" + Util.getSign(className) + "\")) {\n");
         builder.append("\t\t_object = obj._object;\n");
         builder.append("\t}\n");
         builder.append("\toperator jobject(){\n");
@@ -331,7 +362,7 @@ public class DefineHFile {
     public static String getConstructor(CppClass cppClass) {
         StringBuilder builder = new StringBuilder();
         String className = cppClass.getClassName();
-        String name = className.substring(className.lastIndexOf(".") + 1, className.length());
+        String name = cppClass.getFileName();
         builder.append("protected:\n");
         builder.append("\t" + name + "(std::string className): JavaObject(className) {\n");
         ArrayList<String> fieldIDList = cppClass.getFieldIDList();
@@ -362,7 +393,7 @@ public class DefineHFile {
             }
         }
         builder.append("): " + cppConstructor.getConstructorName() + "(std::string(\"" +
-                        Util.getSign(className).replace(".", "/") + "\")) {\n");
+                        Util.getSign(className) + "\")) {\n");
         builder.append("\t\tif (" + cppConstructor.getToken() + " == NULL) {\n");
         builder.append("\t\t\t" + cppConstructor.getToken() + " = _env->GetMethodID(_clazz, \"<init>\", \"" +
                         cppConstructor.getSignature() + "\");\n");
@@ -467,7 +498,7 @@ public class DefineHFile {
         return builder.toString();
     }
 
-    public static String getStaticMethod(ArrayList<CppMethod> methods, String fileName) {
+    public static String getStaticMethod(ArrayList<CppMethod> methods, String fileName, CppClass cppClass) {
         StringBuilder builder = new StringBuilder();
         CppMethod cppMethod = methods.get(0);
         String methodName = "";
@@ -476,6 +507,7 @@ public class DefineHFile {
         }
         methodName += cppMethod.getMethodName();
         builder.append(Util.getType(cppMethod.getMethodType(), Util.RETURN) + " "
+                + cppClass.getStaticPrefix()
                 + fileName + "::" + methodName + "(");
         ArrayList<CppParameter> params = cppMethod.getParams();
         for (int i = 0; i < params.size(); i++) {
@@ -558,16 +590,21 @@ public class DefineHFile {
         ArrayList<String> staticFieldIDList = cppClass.getStaticFieldIDList();
         ArrayList<String> staticMethodIDList = cppClass.getStaticMethodIDList();
         for (int i = 0; i < staticFieldIDList.size(); i++) {
-            builder.append("jfieldID " + fileName + "::" + staticFieldIDList.get(i) + " = NULL;\n");
+            builder.append("jfieldID " + cppClass.getStaticPrefix()
+                    + fileName + "::" + staticFieldIDList.get(i) + " = NULL;\n");
         }
         for (int i = 0; i < staticMethodIDList.size(); i++) {
-            builder.append("jmethodID " + fileName + "::" + staticMethodIDList.get(i) + " = NULL;\n");
+            builder.append("jmethodID " + cppClass.getStaticPrefix()
+                    + fileName + "::" + staticMethodIDList.get(i) + " = NULL;\n");
         }
-        builder.append("bridge::BridgeObject " + fileName + "::static_bridge_object(\"" + className + "\");\n");
-        builder.append("jclass " + fileName + "::get_java_static_class() {\n");
+        builder.append("bridge::BridgeObject " + cppClass.getStaticPrefix()
+                + fileName + "::static_bridge_object(\"" + className + "\");\n");
+        builder.append("jclass " + cppClass.getStaticPrefix()
+                + fileName + "::get_java_static_class() {\n");
         builder.append("\treturn static_bridge_object.getClass();\n");
         builder.append("}\n");
-        builder.append("JNIEnv* " + fileName + "::get_java_virtual_machine_env() {\n");
+        builder.append("JNIEnv* " + cppClass.getStaticPrefix()
+                + fileName + "::get_java_virtual_machine_env() {\n");
         builder.append("\treturn static_bridge_object.getEnv();\n");
         builder.append("}\n");
 

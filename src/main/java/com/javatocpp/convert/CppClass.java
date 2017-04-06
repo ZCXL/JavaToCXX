@@ -15,6 +15,8 @@ public class CppClass {
     private boolean hasDefaultConstructor = true;
     private String className;
     private String fileName;
+    private String staticPrefix = "";
+    private String privilege;
     private ArrayList<CppField> fieldList = new ArrayList<>();
     private ArrayList<CppField> staticFieldList = new ArrayList<>();
     private ArrayList<CppConstructor> constructorList = new ArrayList<>();
@@ -36,6 +38,7 @@ public class CppClass {
         this.className = className;
         hasDefaultConstructor = false;
     }
+
     public CppClass(String fileName, int line, String className) {
         this.fileName = fileName;
         this.line = line;
@@ -43,6 +46,26 @@ public class CppClass {
             className = className.substring(0, className.lastIndexOf("."));
         }
         this.className = className;
+        try {
+            this.cls = Class.forName(className);
+            init();
+        } catch (ClassNotFoundException e) {
+            Log.error("Line: %d\tError: %s\t%s", line, "File imported is not java class!", e.toString());
+        }
+    }
+
+    public CppClass(String fileName, String className, Class cls) {
+        String fileNames[] = fileName.split("\\$");
+        if (fileNames.length > 1) {
+            this.fileName = fileNames[fileNames.length - 1];
+            for (int i = 0; i < fileNames.length; i++) {
+                staticPrefix += fileNames[i] + "::";
+            }
+        } else {
+            this.fileName = fileName;
+        }
+        this.className = className;
+        this.cls = cls;
         init();
     }
 
@@ -50,14 +73,12 @@ public class CppClass {
      * Got methods, constructors and field.
      */
     private void init() {
-        try {
-            cls = Class.forName(className);
-            getFields();
-            getConstructors();
-            getMethods();
-        } catch (ClassNotFoundException e) {
-            Log.error("Line: %d\tError: %s\t%s", line, "File imported is not java class!", e.toString());
-        }
+        int modifier = cls.getModifiers();
+        privilege = Modifier.toString(modifier);
+        getFields();
+        getConstructors();
+        getMethods();
+        getInnerClass();
     }
 
     /**
@@ -137,6 +158,12 @@ public class CppClass {
             int modifier = fields[i].getModifiers();
             String sModifier = Modifier.toString(modifier);
             Class<?>type = fields[i].getType();
+            /**
+             * Filter java default object in inner class.
+             */
+            if (fields[i].getName().startsWith("this$")) {
+                continue;
+            }
             CppField field = new CppField(sModifier, type.getName(), fields[i].getName());
             String innerType = Util.getNotInnerType(type.getName());
             if (!innerType.equals("") && !predeclareClass.contains(innerType)) {
@@ -152,6 +179,19 @@ public class CppClass {
         }
     }
 
+    /**
+     * Get all inner classes
+     */
+    public void getInnerClass() {
+        Class<?>[] classes = cls.getDeclaredClasses();
+        for (int i = 0; i < classes.length; i++) {
+            Class tmpCls = classes[i];
+            String fileName = tmpCls.getName();
+            String fileNames[] = fileName.split("\\.");
+            CppClass cppClass = new CppClass(fileNames[fileNames.length - 1], fileName, tmpCls);
+            innerClasses.add(cppClass);
+        }
+    }
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
@@ -196,6 +236,10 @@ public class CppClass {
                 }
                 builder.append(");\n");
             }
+        }
+
+        for (int i = 0; i < innerClasses.size(); i++) {
+            builder.append(innerClasses.get(i).toString());
         }
         builder.append("};\n");
         return builder.toString();
@@ -299,5 +343,17 @@ public class CppClass {
 
     public ArrayList<String> getStaticMethodIDList() {
         return staticMethodIDList;
+    }
+
+    public ArrayList<CppClass> getInnerClasses() {
+        return innerClasses;
+    }
+
+    public String getStaticPrefix() {
+        return staticPrefix;
+    }
+
+    public String getPrivilege() {
+        return privilege;
     }
 }

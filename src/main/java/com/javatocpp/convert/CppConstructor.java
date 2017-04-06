@@ -21,6 +21,8 @@ public class CppConstructor implements Token{
         if (constructorName.contains(".")) {
             constructorName = constructorName.substring(constructorName.lastIndexOf(".") + 1,
                     constructorName.length());
+            String constructorNames[] = constructorName.split("\\$");
+            constructorName = constructorNames[constructorNames.length - 1];
         }
         this.constructorName = constructorName;
         token = "";

@@ -27,7 +27,8 @@ public class CppMethod implements Token{
             isFinal = true;
         }
         this.methodType = methodType;
-        this.methodName = methodName;
+        String[] methodNames = methodName.split("\\$");
+        this.methodName = methodNames[methodNames.length - 1];
         token = "";
     }
 
