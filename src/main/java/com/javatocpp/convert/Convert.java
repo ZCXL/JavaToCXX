@@ -87,6 +87,18 @@ public class Convert {
         for (int i = 0; i < files.size(); i++) {
             javaToCPP(files.get(i));
         }
+
+        /**
+         * Produce class code which is not imported.
+         */
+        for (int i = 0; i < predeclareList.size(); i++) {
+            Log.notice("Predeclare class[%s]\n", predeclareList.get(i));
+            String fileName = predeclareList.get(i);
+            String fileNames[] = fileName.split("\\.");
+            CppClass cppClass = new CppClass(fileNames[fileNames.length - 2], predeclareList.get(i));
+            DefineNewClass(cppClass);
+        }
+
         if (!createImportFile()) {
             Log.error("Msg: create import file error.\n");
         }
@@ -141,17 +153,6 @@ public class Convert {
             }
             for (int i = 0; i < classList.size(); i++) {
                 DefineNewClass(classList.get(i));
-            }
-
-            /**
-             * Produce class code which is not imported.
-             */
-            for (int i = 0; i < predeclareList.size(); i++) {
-                Log.notice("Predeclare class[%s]\n", predeclareList.get(i));
-                String fileName = predeclareList.get(i);
-                String fileNames[] = fileName.split("\\.");
-                CppClass cppClass = new CppClass(fileNames[fileNames.length - 2], predeclareList.get(i));
-                DefineNewClass(cppClass);
             }
         } catch (IOException e) {
             Log.error("Msg: %s\n", e.toString());

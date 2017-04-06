@@ -1,0 +1,15 @@
+#*************************************************************************
+#	> File Name: j2c.sh
+#	> Author: zhuchao
+#	> Mail: zhuchao1995@hotmail.com 
+#	> Created Time: Thu 06 Apr 2017 06:07:25 AM UTC
+# ************************************************************************/
+#!/bin/bash
+JAVATOCXX_PATH=/usr/local/include/javatocxx
+argc=$#
+if [ $argc -lt 1 ]; then
+	echo "Usage: g2c [filename]|[directory]"
+	exit
+fi
+
+java -jar "${JAVATOCXX_PATH}/JavaToCXX.jar" $@
