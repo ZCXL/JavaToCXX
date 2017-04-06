@@ -343,6 +343,10 @@ public class DefineHFile {
                 + "(std::string(\"" + Util.getSign(className) + "\")) {\n");
         builder.append("\t\t_object = obj._object;\n");
         builder.append("\t}\n");
+        builder.append("\t" + fileName + "(JavaObject obj): " + fileName
+                + "(std::string(\"" + Util.getSign(className) + "\")) {\n");
+        builder.append("\t\t_object = obj.getObject();\n");
+        builder.append("\t}\n");
         builder.append("\toperator jobject(){\n");
         builder.append("\t\treturn _object;\n");
         builder.append("\t}\n");
